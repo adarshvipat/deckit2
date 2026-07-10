@@ -76,7 +76,7 @@ class PostCaption:
 
 @dataclass
 class ScraperConfig:
-    count: int = 10
+    count: int = 5
     max_retries: int = 3
     retry_backoff: float = 5.0
     delay: float = 0.0
@@ -426,11 +426,47 @@ class InstagramScraper:
             return None
 
     def _extract_timestamp_from_post_page(self) -> Optional[str]:
+        selectors = (
+            "article time",
+            "time[datetime]",
+            'meta[property="og:updated_time"]',
+            'meta[property="article:published_time"]',
+        )
+        for selector in selectors:
+            try:
+                element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                value = element.get_attribute("datetime") or element.get_attribute("content")
+                if value:
+                    return value
+            except NoSuchElementException:
+                continue
+
+        # Fallback: Instagram shortcodes encode an approximate publish time.
+        shortcode = self._extract_shortcode(self.driver.current_url)
+        if shortcode:
+            return self._timestamp_from_shortcode(shortcode)
+        return None
+
+    @staticmethod
+    def _timestamp_from_shortcode(shortcode: str) -> Optional[str]:
+        """Decode Instagram shortcode snowflake into an ISO-8601 UTC timestamp."""
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        media_id = 0
         try:
-            time_element = self.driver.find_element(By.CSS_SELECTOR, "article time")
-            return time_element.get_attribute("datetime")
-        except NoSuchElementException:
+            for char in shortcode:
+                media_id = (media_id * 64) + alphabet.index(char)
+        except ValueError:
             return None
+
+        # Instagram epoch (ms) + snowflake timestamp bits.
+        instagram_epoch_ms = 1_314_220_021_721
+        timestamp_ms = (media_id >> 23) + instagram_epoch_ms
+        if timestamp_ms <= 0:
+            return None
+
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc).isoformat()
 
     def _page_text(self) -> str:
         try:

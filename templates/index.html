@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Scrape Instagram Events{% endblock %}
+{% block content %}
+<section class="panel hero-panel">
+  <p class="eyebrow">Instagram → Calendar</p>
+  <h1>Review events before they hit your calendar</h1>
+  <p class="lede">
+    Pull recent posts, extract event details, then approve each one.
+    Accepted events are written into an ICS file you can download.
+  </p>
+
+  {% if error %}
+  <p class="error" role="alert">{{ error }}</p>
+  {% endif %}
+
+  <form class="scrape-form" id="scrape-form" method="post" action="{{ url_for('scrape') }}">
+    <label for="profile">Instagram profile</label>
+    <input
+      id="profile"
+      name="profile"
+      type="text"
+      placeholder="umass_sase or https://www.instagram.com/umass_sase/"
+      required
+      autofocus
+    />
+
+    <label for="count">Posts to scan</label>
+    <input id="count" name="count" type="number" min="1" max="20" value="5" />
+
+    <button type="submit" class="btn primary" id="scrape-submit">Find events</button>
+  </form>
+  <p class="hint">Scraping + LLM extraction can take about a minute.</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const err = params.get("error");
+  if (err) {
+    const existing = document.querySelector(".error");
+    if (!existing) {
+      const p = document.createElement("p");
+      p.className = "error";
+      p.setAttribute("role", "alert");
+      p.textContent = err;
+      const form = document.getElementById("scrape-form");
+      form.parentNode.insertBefore(p, form);
+    }
+  }
+
+  const form = document.getElementById("scrape-form");
+  const btn = document.getElementById("scrape-submit");
+  if (form && btn) {
+    form.addEventListener("submit", () => {
+      btn.disabled = true;
+      btn.textContent = "Starting…";
+    });
+  }
+})();
+</script>
+{% endblock %}

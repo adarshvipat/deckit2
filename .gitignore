@@ -14,6 +14,13 @@ __pycache__/
 # ICS output files
 *.ics
 
+# Secrets
+.env
+.env.local
+
+# Generated calendars
+output/
+
 # IDE
 .vscode/
 .idea/

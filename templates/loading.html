@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Finding events…{% endblock %}
+{% block content %}
+<section class="panel loading-panel" data-job-id="{{ job_id }}">
+  <p class="eyebrow">@{{ profile }}</p>
+  <h1>Working on it</h1>
+  <p class="lede loading-message" id="loading-message">Starting up…</p>
+
+  <div class="progress-track" aria-hidden="true">
+    <div class="progress-fill" id="progress-fill" style="width: 4%"></div>
+  </div>
+  <p class="progress-percent" id="progress-percent">0%</p>
+
+  <ul class="loading-steps" id="loading-steps">
+    <li data-step="start">Starting up</li>
+    <li data-step="scrape">Scraping the web</li>
+    <li data-step="read">Reading captions</li>
+    <li data-step="process">Processing</li>
+    <li data-step="ready">Ready to review</li>
+  </ul>
+
+  <form id="claim-form" method="post" action="{{ url_for('claim_job', job_id=job_id) }}" hidden>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const panel = document.querySelector(".loading-panel");
+  if (!panel) return;
+
+  const jobId = panel.dataset.jobId;
+  const messageEl = document.getElementById("loading-message");
+  const fillEl = document.getElementById("progress-fill");
+  const percentEl = document.getElementById("progress-percent");
+  const claimForm = document.getElementById("claim-form");
+  const steps = Array.from(document.querySelectorAll("#loading-steps li"));
+  let finished = false;
+
+  function activateStep(message) {
+    const lower = (message || "").toLowerCase();
+    let key = "start";
+    if (lower.includes("scrap")) key = "scrape";
+    else if (lower.includes("caption") || lower.includes("reading")) key = "read";
+    else if (lower.includes("process") || lower.includes("ai")) key = "process";
+    else if (lower.includes("ready") || lower.includes("almost") || lower.includes("done")) key = "ready";
+
+    const order = ["start", "scrape", "read", "process", "ready"];
+    const activeIndex = order.indexOf(key);
+    steps.forEach((li) => {
+      const step = li.dataset.step;
+      const idx = order.indexOf(step);
+      li.classList.toggle("active", step === key);
+      li.classList.toggle("done", idx >= 0 && idx < activeIndex);
+    });
+  }
+
+  async function poll() {
+    if (finished) return;
+    try {
+      const res = await fetch(`/api/job/${jobId}`, { headers: { Accept: "application/json" } });
+      const data = await res.json();
+      if (!res.ok) {
+        messageEl.textContent = data.error || "Job not found.";
+        return;
+      }
+
+      const progress = Math.max(0, Math.min(100, Number(data.progress) || 0));
+      fillEl.style.width = `${progress}%`;
+      percentEl.textContent = `${progress}%`;
+      messageEl.textContent = data.message || "Working…";
+      activateStep(data.message);
+
+      if (data.status === "done") {
+        finished = true;
+        messageEl.textContent = "Ready to review";
+        fillEl.style.width = "100%";
+        percentEl.textContent = "100%";
+        activateStep("ready");
+        claimForm.submit();
+        return;
+      }
+
+      if (data.status === "error") {
+        finished = true;
+        window.location.href = "/?error=" + encodeURIComponent(data.error || "Scrape failed.");
+        return;
+      }
+    } catch (err) {
+      messageEl.textContent = "Still working… reconnecting";
+    }
+    setTimeout(poll, 900);
+  }
+
+  poll();
+})();
+</script>
+{% endblock %}

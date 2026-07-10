@@ -1,0 +1,396 @@
+:root {
+  --bg: #f3efe6;
+  --ink: #1c1915;
+  --muted: #6b645a;
+  --panel: rgba(255, 252, 246, 0.92);
+  --line: rgba(28, 25, 21, 0.12);
+  --accent: #0f6b5c;
+  --accent-ink: #f7fffc;
+  --danger: #8a2f2f;
+  --shadow: 0 24px 60px rgba(40, 28, 12, 0.12);
+  --radius: 22px;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: var(--font-body);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(15, 107, 92, 0.16), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(196, 122, 58, 0.18), transparent 28%),
+    linear-gradient(160deg, #efe8da 0%, #f7f3ea 48%, #e7efe9 100%);
+}
+
+.shell {
+  width: min(720px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 3.5rem 0 4rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+  backdrop-filter: blur(10px);
+  animation: rise 420ms ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.eyebrow {
+  margin: 0 0 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.lede,
+.hint {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.lede {
+  margin: 0 0 1.5rem;
+}
+
+.hint {
+  margin: 1rem 0 0;
+  font-size: 0.92rem;
+}
+
+.error {
+  background: rgba(138, 47, 47, 0.08);
+  border: 1px solid rgba(138, 47, 47, 0.25);
+  color: var(--danger);
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  margin: 0 0 1.25rem;
+}
+
+.scrape-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+input[type="text"],
+input[type="number"] {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  background: #fff;
+  margin-bottom: 0.7rem;
+}
+
+input:focus {
+  outline: 2px solid rgba(15, 107, 92, 0.35);
+  border-color: var(--accent);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.85rem 1.25rem;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.progress {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.event-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0 1.75rem;
+}
+
+.event-details .full {
+  grid-column: 1 / -1;
+}
+
+.event-details dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.event-details dd {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.caption {
+  white-space: pre-wrap;
+  background: rgba(28, 25, 21, 0.04);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.decide-form,
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.decide-form .btn,
+.actions .btn {
+  flex: 1 1 160px;
+}
+
+.accepted-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.accepted-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.accepted-list span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* Loading screen */
+.loading-panel {
+  text-align: left;
+}
+
+.progress-track {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(28, 25, 21, 0.08);
+  overflow: hidden;
+  margin: 1.25rem 0 0.55rem;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f6b5c, #2a9d8f);
+  transition: width 420ms ease;
+}
+
+.progress-percent {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.loading-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.loading-steps li {
+  position: relative;
+  padding-left: 1.5rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.loading-steps li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.4rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: rgba(28, 25, 21, 0.18);
+}
+
+.loading-steps li.active {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.loading-steps li.active::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(15, 107, 92, 0.15);
+}
+
+.loading-steps li.done {
+  color: var(--ink);
+}
+
+.loading-steps li.done::before {
+  background: var(--accent);
+}
+
+/* Swipe review */
+.swipe-hint {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.swipe-stage {
+  position: relative;
+  margin-bottom: 1.25rem;
+  touch-action: pan-y;
+  --badge-opacity: 0;
+}
+
+.event-card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.25rem;
+  cursor: grab;
+  user-select: none;
+  will-change: transform;
+}
+
+.event-card.dragging {
+  cursor: grabbing;
+}
+
+.event-card h1 {
+  pointer-events: none;
+}
+
+.swipe-badge {
+  position: absolute;
+  top: 1.1rem;
+  z-index: 2;
+  padding: 0.35rem 0.7rem;
+  border-radius: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+/* Opposite side of the swipe so badges don't sit under the flying card. */
+.swipe-badge-yes {
+  left: 1.1rem;
+  color: #0f6b5c;
+  border: 2px solid #0f6b5c;
+  background: rgba(15, 107, 92, 0.08);
+}
+
+.swipe-badge-no {
+  right: 1.1rem;
+  color: #8a2f2f;
+  border: 2px solid #8a2f2f;
+  background: rgba(138, 47, 47, 0.08);
+}
+
+.swipe-stage.lean-yes .swipe-badge-yes,
+.swipe-stage.lean-no .swipe-badge-no {
+  opacity: var(--badge-opacity);
+}
+
+.btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding-top: 2rem;
+  }
+
+  .panel {
+    padding: 1.35rem;
+  }
+
+  .event-details {
+    grid-template-columns: 1fr;
+  }
+
+  .meta-row {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}

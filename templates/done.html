@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Review complete{% endblock %}
+{% block content %}
+<section class="panel done-panel">
+  <p class="eyebrow">Done</p>
+  <h1>
+    {% if accepted_count %}
+      {{ accepted_count }} event{% if accepted_count != 1 %}s{% endif %} ready
+    {% else %}
+      No events accepted
+    {% endif %}
+  </h1>
+  <p class="lede">
+    {% if has_file %}
+      Your ICS file is ready to download and import into Google Calendar, Apple Calendar, or Outlook.
+    {% else %}
+      Nothing was added to the calendar file. Start another scrape if you want to try again.
+    {% endif %}
+  </p>
+
+  {% if accepted %}
+  <ul class="accepted-list">
+    {% for event in accepted %}
+    <li>
+      <strong>{{ event.summary }}</strong>
+      <span>{{ event.dtstart or "no start" }}{% if event.location %} · {{ event.location }}{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="actions">
+    {% if has_file %}
+    <a class="btn primary" href="{{ url_for('download') }}">Download ICS</a>
+    {% endif %}
+    <a class="btn ghost" href="{{ url_for('index') }}">Start over</a>
+  </div>
+</section>
+{% endblock %}
