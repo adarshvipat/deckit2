@@ -203,7 +203,9 @@ class InstagramScraper:
         for attempt in range(1, self.config.max_retries + 1):
             try:
                 return self._fetch_captions_once(username)
-            except (RateLimitError, TimeoutException, WebDriverException) as exc:
+            except (ProfileNotFoundError, LoginRequiredError):
+                raise
+            except (ScraperError, TimeoutException, WebDriverException) as exc:
                 last_error = exc
                 if attempt == self.config.max_retries:
                     break
