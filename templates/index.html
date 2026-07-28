@@ -1,56 +1,41 @@
 {% extends "base.html" %}
-{% block title %}Find Events{% endblock %}
+{% block title %}What are you into?{% endblock %}
 {% block content %}
 <section class="panel hero-panel">
   <p class="eyebrow">Events → Calendar</p>
-  <h1>Review events before they hit your calendar</h1>
+  <h1>What kind of events are you into?</h1>
   <p class="lede">
-    Pull text from Instagram or any web page, extract event details, then approve each one.
-    Accepted events are written into an ICS file you can download.
+    Pick your interests and we'll deal you a deck of upcoming events. Swipe right on the
+    ones you want, and take them home as a calendar file.
   </p>
 
   {% if error %}
   <p class="error" role="alert">{{ error }}</p>
   {% endif %}
 
-  <div class="mode-tabs" role="tablist">
-    <button type="button" class="mode-tab active" id="tab-instagram" role="tab" aria-selected="true">Instagram profile</button>
-    <button type="button" class="mode-tab" id="tab-url" role="tab" aria-selected="false">Event page link</button>
-  </div>
+  <form class="survey-form" id="survey-form" method="post" action="{{ url_for('build_deck') }}">
+    <div class="survey-options">
+      {% for category in categories %}
+      <label class="survey-option" for="cat-{{ category }}">
+        <input
+          type="checkbox"
+          id="cat-{{ category }}"
+          name="categories"
+          value="{{ category }}"
+        />
+        <span class="survey-option-body">
+          <span class="survey-option-title">{{ category_labels[category] }}</span>
+          <span class="survey-option-blurb">{{ category_blurbs[category] }}</span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
 
-  <form class="scrape-form" id="scrape-form" method="post" action="{{ url_for('scrape') }}">
-    <label for="profile">Instagram profile</label>
-    <input
-      id="profile"
-      name="profile"
-      type="text"
-      placeholder="umass_sase or https://www.instagram.com/umass_sase/"
-      required
-      autofocus
-    />
-
-    <label for="count">Posts to scan</label>
-    <input id="count" name="count" type="number" min="1" max="20" value="5" />
-
-    <button type="submit" class="btn primary" id="scrape-submit">Find events</button>
+    <button type="submit" class="btn primary" id="survey-submit">Build my deck</button>
+    <p class="hint">Pick as many as you like — leave them all unchecked to see everything.</p>
   </form>
 
-  <form class="scrape-form" id="url-form" method="post" action="{{ url_for('scrape_url') }}" hidden>
-    <label for="url">Event page link</label>
-    <input
-      id="url"
-      name="url"
-      type="text"
-      placeholder="https://umassamherst.campuslabs.com/engage/events"
-    />
-
-    <label for="sections">Sections to scan</label>
-    <input id="sections" name="sections" type="number" min="1" max="15" value="6" />
-
-    <button type="submit" class="btn primary" id="url-submit">Find events</button>
-  </form>
-
-  <p class="hint">Scraping + LLM extraction can take about a minute.</p>
+  <p class="admin-link"><a href="{{ url_for('admin') }}">Admin panel</a></p>
 </section>
 {% endblock %}
 
@@ -59,60 +44,19 @@
 (function () {
   const params = new URLSearchParams(window.location.search);
   const err = params.get("error");
-  if (err) {
-    const existing = document.querySelector(".error");
-    if (!existing) {
-      const p = document.createElement("p");
-      p.className = "error";
-      p.setAttribute("role", "alert");
-      p.textContent = err;
-      const igForm = document.getElementById("scrape-form");
-      igForm.parentNode.insertBefore(p, igForm);
-    }
+  const form = document.getElementById("survey-form");
+  if (err && !document.querySelector(".error")) {
+    const p = document.createElement("p");
+    p.className = "error";
+    p.setAttribute("role", "alert");
+    p.textContent = err;
+    form.parentNode.insertBefore(p, form);
   }
 
-  const igTab = document.getElementById("tab-instagram");
-  const urlTab = document.getElementById("tab-url");
-  const igForm = document.getElementById("scrape-form");
-  const urlForm = document.getElementById("url-form");
-  const profileInput = document.getElementById("profile");
-  const urlInput = document.getElementById("url");
-
-  function showInstagram() {
-    igForm.hidden = false;
-    urlForm.hidden = true;
-    igTab.classList.add("active");
-    urlTab.classList.remove("active");
-    igTab.setAttribute("aria-selected", "true");
-    urlTab.setAttribute("aria-selected", "false");
-    profileInput.required = true;
-    urlInput.required = false;
-  }
-
-  function showUrl() {
-    igForm.hidden = true;
-    urlForm.hidden = false;
-    urlTab.classList.add("active");
-    igTab.classList.remove("active");
-    urlTab.setAttribute("aria-selected", "true");
-    igTab.setAttribute("aria-selected", "false");
-    urlInput.required = true;
-    profileInput.required = false;
-  }
-
-  igTab.addEventListener("click", showInstagram);
-  urlTab.addEventListener("click", showUrl);
-
-  const igBtn = document.getElementById("scrape-submit");
-  igForm.addEventListener("submit", () => {
-    igBtn.disabled = true;
-    igBtn.textContent = "Starting…";
-  });
-
-  const urlBtn = document.getElementById("url-submit");
-  urlForm.addEventListener("submit", () => {
-    urlBtn.disabled = true;
-    urlBtn.textContent = "Starting…";
+  const btn = document.getElementById("survey-submit");
+  form.addEventListener("submit", () => {
+    btn.disabled = true;
+    btn.textContent = "Dealing…";
   });
 })();
 </script>

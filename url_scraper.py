@@ -84,13 +84,24 @@ def _slugify(value: str) -> str:
 
 
 def normalize_url(value: str) -> str:
-    """Accept bare domains like 'example.com/page' as well as full URLs."""
+    """Accept bare domains like 'example.com/page' as well as full URLs.
+
+    urlparse happily accepts any non-empty string as a netloc ("not a url"
+    parses fine), so the host is validated here — otherwise a typo would launch
+    a browser and burn a minute failing to load it.
+    """
     value = value.strip()
     if not value:
         raise ValueError("Empty URL.")
     parsed = urlparse(value if "://" in value else f"https://{value}")
-    if not parsed.netloc:
+    host = parsed.netloc
+    if not host:
         raise ValueError(f"Invalid URL: {value}")
+    if any(char.isspace() for char in host):
+        raise ValueError(f"Invalid URL (spaces in the host): {value}")
+    hostname = (parsed.hostname or "").strip(".")
+    if not hostname or ("." not in hostname and hostname != "localhost"):
+        raise ValueError(f"Invalid URL (not a hostname): {value}")
     return parsed.geturl()
 
 

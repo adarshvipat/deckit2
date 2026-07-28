@@ -405,9 +405,459 @@ a {
   transform: none;
 }
 
+/* ---- client survey ---- */
+
+.survey-options {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.survey-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.survey-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(15, 107, 92, 0.4);
+}
+
+.survey-option:has(input:checked) {
+  border-color: var(--accent);
+  background: rgba(15, 107, 92, 0.08);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.survey-option input {
+  margin-top: 0.25rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.survey-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.survey-option-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.survey-option-blurb {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.survey-form .btn {
+  width: 100%;
+}
+
+.admin-link {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+}
+
+.admin-link a {
+  color: var(--muted);
+}
+
+/* ---- category chips ---- */
+
+.category-chip {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.category-professional {
+  background: rgba(15, 107, 92, 0.14);
+  color: #0b5145;
+}
+
+.category-fun {
+  background: rgba(196, 122, 58, 0.18);
+  color: #8a4d17;
+}
+
+.category-community {
+  background: rgba(75, 86, 160, 0.16);
+  color: #3b4585;
+}
+
+.category-none {
+  background: rgba(28, 25, 21, 0.08);
+  color: var(--muted);
+}
+
+.event-card .category-chip {
+  margin-bottom: 0.75rem;
+}
+
+.deck-categories {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---- week calendar ---- */
+
+.shell.wide {
+  width: min(1120px, calc(100% - 2rem));
+}
+
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 480px;
+  gap: 1.75rem;
+  align-items: start;
+}
+
+.review-deck {
+  min-width: 0;
+}
+
+.week-calendar {
+  min-width: 0;
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.week-day {
+  min-width: 0;
+}
+
+.week-day-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.4rem;
+}
+
+.week-dow {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.week-num {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.week-day.is-today .week-num {
+  color: var(--accent);
+}
+
+.week-day.is-today .week-day-head {
+  border-bottom-color: var(--accent);
+}
+
+.week-allday {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 0.35rem;
+}
+
+.week-slots {
+  position: relative;
+  border-top: 1px dashed var(--line);
+}
+
+/* Chips are absolutely positioned in the timed grid (Python supplies `top`),
+   but flow normally in the all-day band and the overflow tray. */
+.week-slots .chip {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.chip {
+  display: block;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 4px;
+  border-radius: 5px;
+  font-size: 0.6rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(28, 25, 21, 0.1);
+  color: var(--muted);
+  transition: background 200ms ease, color 200ms ease, box-shadow 200ms ease;
+}
+
+.chip-accepted {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.chip-current {
+  background: rgba(28, 25, 21, 0.14);
+  color: var(--ink);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.week-overflow {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.week-overflow-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.week-overflow-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 3px;
+}
+
+/* ---- event description ---- */
+
+.event-description {
+  margin: 0 0 1.25rem;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.event-description.empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---- admin batch scrape form ---- */
+
+.source-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.source-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.source-field textarea {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.source-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 107, 92, 0.14);
+}
+
+.field-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.batch-form .btn {
+  width: 100%;
+}
+
+/* ---- admin catalog ---- */
+
+.backfill-form {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(196, 122, 58, 0.1);
+}
+
+.backfill-form p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.catalog-panel {
+  margin-top: 1.5rem;
+}
+
+.notice {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(15, 107, 92, 0.1);
+  color: #0b5145;
+  font-size: 0.9rem;
+}
+
+.source-list {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.source-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.source-list span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
+}
+
+.catalog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.catalog-table th {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.catalog-table td {
+  padding: 0.7rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.catalog-table td a {
+  color: var(--accent);
+  word-break: break-word;
+}
+
+.cell-sub {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.btn.tiny {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.btn.danger {
+  border-color: rgba(138, 47, 47, 0.4);
+  color: var(--danger);
+}
+
+.danger-form {
+  margin: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .review-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .week-calendar {
+    order: -1;
+  }
+}
+
 @media (max-width: 640px) {
   .shell {
     padding-top: 2rem;
+  }
+
+  /* Seven columns on a phone leave no room for text — keep bare boxes. */
+  .chip {
+    font-size: 0;
+    padding: 0 2px;
+  }
+
+  .week-overflow-chips {
+    grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
   }
 
   .panel {
@@ -421,5 +871,18 @@ a {
   .meta-row {
     flex-direction: column;
     gap: 0.25rem;
+  }
+
+  .source-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .source-list li {
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .source-list span {
+    text-align: left;
   }
 }

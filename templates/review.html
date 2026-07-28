@@ -1,43 +1,49 @@
 {% extends "base.html" %}
 {% block title %}Review event {{ index }}/{{ total }}{% endblock %}
+{% block shell_class %}wide{% endblock %}
 {% block content %}
 <section class="panel review-panel">
   <div class="meta-row">
-    <p class="eyebrow">{% if kind == "url" %}{{ profile }}{% else %}@{{ profile }}{% endif %}</p>
+    <p class="eyebrow">{{ event.source_username or "Your deck" }}</p>
     <p class="progress">{{ index }} / {{ total }} · {{ accepted_count }} accepted</p>
   </div>
 
   <p class="swipe-hint">Swipe right to accept · swipe left to skip</p>
 
+  <div class="review-layout">
+  <div class="review-deck">
   <div class="swipe-stage">
     <div class="swipe-badge swipe-badge-no" aria-hidden="true">NO</div>
     <div class="swipe-badge swipe-badge-yes" aria-hidden="true">YES</div>
 
     <article class="event-card" id="event-card">
+      {% if event.category %}
+      <span class="category-chip category-{{ event.category }}">{{ category_labels[event.category] }}</span>
+      {% endif %}
       <h1>{{ event.summary }}</h1>
+
+      {% if event.description %}
+      <p class="event-description">{{ event.description }}</p>
+      {% else %}
+      <p class="event-description empty">No description available.</p>
+      {% endif %}
 
       <dl class="event-details">
         <div>
           <dt>Starts</dt>
-          <dd>{{ event.dtstart or "Unknown" }}</dd>
+          <dd>{{ event.dtstart | pretty_date("Unknown") }}</dd>
         </div>
         <div>
           <dt>Ends</dt>
-          <dd>{{ event.dtend or "Unknown" }}</dd>
+          <dd>{{ event.dtend | pretty_date("Unknown") }}</dd>
         </div>
         <div>
           <dt>Location</dt>
           <dd>{{ event.location or "—" }}</dd>
         </div>
-        {% if event.description %}
-        <div class="full">
-          <dt>Description</dt>
-          <dd>{{ event.description }}</dd>
-        </div>
-        {% endif %}
         {% if event.source_caption %}
         <div class="full">
-          <dt>{% if kind == "url" %}Source text{% else %}Original caption{% endif %}</dt>
+          <dt>Source text</dt>
           <dd class="caption">{{ event.source_caption }}</dd>
         </div>
         {% endif %}
@@ -55,6 +61,44 @@
     <button type="submit" name="decision" value="no" class="btn ghost" id="btn-no">No</button>
     <button type="submit" name="decision" value="yes" class="btn primary" id="btn-yes">Yes — add to ICS</button>
   </form>
+  </div>
+
+  <aside class="week-calendar" aria-label="Your week">
+    <div class="week-grid">
+      {% for day in calendar.days %}
+      <div class="week-day{% if day.is_today %} is-today{% endif %}">
+        <div class="week-day-head">
+          <span class="week-dow">{{ day.dow }}</span>
+          <span class="week-num">{{ day.num }}</span>
+        </div>
+
+        <div class="week-allday" style="height: {{ calendar.allday_height }}px">
+          {% for chip in day.allday %}
+          <span class="chip chip-{{ chip.status }}" title="{{ chip.summary }}">{{ chip.summary }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="week-slots" style="height: {{ calendar.grid_height }}px">
+          {% for chip in day.timed %}
+          <span class="chip chip-{{ chip.status }}" style="top: {{ chip.top }}px" title="{{ chip.summary }}">{{ chip.summary }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if calendar.overflow %}
+    <div class="week-overflow">
+      <p class="week-overflow-label">Later / no date</p>
+      <div class="week-overflow-chips">
+        {% for chip in calendar.overflow %}
+        <span class="chip chip-{{ chip.status }}" title="{{ chip.summary }}">{{ chip.summary }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </aside>
+  </div>
 </section>
 {% endblock %}
 

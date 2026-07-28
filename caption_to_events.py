@@ -7,10 +7,11 @@ import logging
 import os
 import re
 import uuid
+from collections import OrderedDict
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from event_store import CalendarEvent
+from event_store import CalendarEvent, normalize_category, parse_iso_datetime
 from instagram_scraper import PostCaption
 
 try:
@@ -21,7 +22,23 @@ except ImportError:  # pragma: no cover - optional until installed
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 
-SYSTEM_PROMPT = """You extract calendar events from a block of text — either an
+# Shared by the extraction prompt and the backfill prompt so the two can never
+# drift into writing descriptions in different voices. Spliced in via a marker
+# rather than an f-string because both prompts contain literal JSON braces.
+DESCRIPTION_RULES = """- REQUIRED for every event. Never null, never an empty string.
+- One or two sentences, roughly 15-40 words. State plainly what the event is, who is hosting it, and what happens there.
+- Factual and neutral. No hype, no second-person marketing ("you'll love…"), no exclamation marks.
+- Ground every detail in the source text. Do not invent activities, prices, guests, or details that are not stated.
+- The title, date, and time are displayed next to the description, so repeating them wastes it. Never open with the event's name, and never state the date.
+  BAD:  "The 2026 Renegade Craft Summer Fair is hosted at Fort Mason Center on August 1-2, showcasing handmade crafts."
+  GOOD: "A weekend market at Fort Mason Center with handmade goods from hundreds of independent artists and makers."
+- Never comment on what the source does not say. Write only what is known, even if that makes the description shorter.
+  BAD:  "An anticipated meteor shower, though specific details are not provided."
+  GOOD: "An annual meteor shower, best viewed away from city lights in the hours before dawn."
+- If a listing row gives only a title, an organizer, and a location, write those as a plain sentence rather than giving up. Example: "Martial arts practice session hosted by UMass Wushu at Campus Center 163C."
+- Never return just an organizer or venue name on its own — write a sentence."""
+
+_SYSTEM_PROMPT = """You extract calendar events from a block of text — either an
 Instagram post caption or text scraped from a web page (e.g. an events listing).
 
 Return ONLY valid JSON with this shape:
@@ -32,10 +49,21 @@ Return ONLY valid JSON with this shape:
       "dtstart": "ISO-8601 datetime or date, or null if unknown",
       "dtend": "ISO-8601 datetime or date, or null",
       "location": "place or null",
-      "description": "brief description or null"
+      "description": "1-2 sentence factual summary (REQUIRED, never null)",
+      "category": "professional | fun | community"
     }
   ]
 }
+
+Description rules:
+__DESCRIPTION_RULES__
+
+Category rules:
+- Every event MUST get exactly one category. Pick the closest fit; never leave it null.
+- "professional" — career fairs, info sessions, recruiting, networking, resume/technical workshops, industry talks, academic conferences.
+- "fun" — parties, socials, mixers, concerts, movie nights, food events, games, sports, trips.
+- "community" — volunteering, service projects, fundraisers, cultural and heritage celebrations, advocacy, religious gatherings, general body meetings.
+- When an event fits two, choose the one matching its primary purpose (e.g. a networking mixer with free food is "professional").
 
 Rules:
 - Only create events when the text clearly describes something schedulable (show, launch, meetup, deadline, performance, etc.).
@@ -51,6 +79,32 @@ Date / year rules (critical):
 - Never invent a year far from the reference date (e.g. do not use 2024 when the reference date is in 2025).
 - If only a weekday + time is given with no calendar date, set dtstart/dtend to null rather than guessing.
 """
+
+_DESCRIBE_PROMPT = """You write short factual descriptions for calendar events that
+were already extracted from a source text.
+
+You are given the original source text and a numbered list of events pulled from it.
+Write one description per event, using only what the source text says about that event.
+
+Return ONLY valid JSON with this shape:
+{
+  "descriptions": {
+    "1": "description for event 1",
+    "2": "description for event 2"
+  }
+}
+
+Rules:
+- Return exactly one entry per numbered event, keyed by its number as a string.
+- If the source text says little about an event, fall back to its title, organizer, and location.
+__DESCRIPTION_RULES__
+"""
+
+SYSTEM_PROMPT = _SYSTEM_PROMPT.replace("__DESCRIPTION_RULES__", DESCRIPTION_RULES)
+DESCRIBE_PROMPT = _DESCRIBE_PROMPT.replace("__DESCRIPTION_RULES__", DESCRIPTION_RULES)
+
+# Events per backfill call. Keeps the JSON response small enough to stay reliable.
+DESCRIBE_BATCH_SIZE = 12
 
 
 class CaptionToEventConverter:
@@ -147,6 +201,99 @@ class CaptionToEventConverter:
             reference=reference,
         )
 
+    def describe_events(
+        self,
+        events: List[CalendarEvent],
+        *,
+        max_calls: Optional[int] = None,
+    ) -> Dict[str, str]:
+        """Write descriptions for events that lack one. Returns {uid: description}.
+
+        Events extracted from the same chunk share an identical source_caption, so
+        they are grouped and that text is sent once for the whole group instead of
+        once per event — the source text dwarfs everything else in the payload.
+        """
+        groups: "OrderedDict[str, List[CalendarEvent]]" = OrderedDict()
+        for event in events:
+            if not event.uid:
+                continue
+            groups.setdefault((event.source_caption or "").strip(), []).append(event)
+
+        descriptions: Dict[str, str] = {}
+        calls = 0
+        for source_text, group in groups.items():
+            for start in range(0, len(group), DESCRIBE_BATCH_SIZE):
+                if max_calls is not None and calls >= max_calls:
+                    return descriptions
+                batch = group[start : start + DESCRIBE_BATCH_SIZE]
+                descriptions.update(self._describe_batch(batch, source_text=source_text))
+                calls += 1
+        return descriptions
+
+    def describe_call_count(self, events: List[CalendarEvent]) -> int:
+        """How many LLM calls describe_events would make for these events."""
+        groups: Dict[str, int] = {}
+        for event in events:
+            if not event.uid:
+                continue
+            key = (event.source_caption or "").strip()
+            groups[key] = groups.get(key, 0) + 1
+        return sum(
+            (count + DESCRIBE_BATCH_SIZE - 1) // DESCRIBE_BATCH_SIZE
+            for count in groups.values()
+        )
+
+    def _describe_batch(
+        self,
+        events: List[CalendarEvent],
+        *,
+        source_text: str,
+    ) -> Dict[str, str]:
+        listing = "\n".join(
+            f"{index}. title: {event.summary}"
+            f" | location: {event.location or 'unknown'}"
+            f" | source: {event.source_username or 'unknown'}"
+            for index, event in enumerate(events, start=1)
+        )
+        user_prompt = (
+            f"Events needing a description:\n{listing}\n\n"
+            + (
+                f"Source text they were extracted from:\n{source_text}"
+                if source_text
+                else "No source text is available — write from the fields above alone."
+            )
+        )
+
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                temperature=0,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": DESCRIBE_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+        except Exception as exc:  # noqa: BLE001 - surface LLM failures cleanly
+            logging.error("Description backfill failed: %s", exc)
+            return {}
+
+        content = response.choices[0].message.content or "{}"
+        payload = _loads_json(content, context="description backfill")
+        if payload is None:
+            return {}
+
+        raw = payload.get("descriptions")
+        if not isinstance(raw, dict):
+            return {}
+
+        results: Dict[str, str] = {}
+        for index, event in enumerate(events, start=1):
+            text = _clean_description(raw.get(str(index)))
+            if text and event.uid:
+                results[event.uid] = text
+        return results
+
     def _parse_events(
         self,
         content: str,
@@ -155,18 +302,9 @@ class CaptionToEventConverter:
         source_username: Optional[str],
         reference: datetime,
     ) -> List[CalendarEvent]:
-        try:
-            payload = json.loads(content)
-        except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", content, re.DOTALL)
-            if not match:
-                logging.warning("LLM returned non-JSON for %s", caption.url)
-                return []
-            try:
-                payload = json.loads(match.group(0))
-            except json.JSONDecodeError:
-                logging.warning("Could not parse LLM JSON for %s", caption.url)
-                return []
+        payload = _loads_json(content, context=caption.url)
+        if payload is None:
+            return []
 
         raw_events = payload.get("events") or []
         if not isinstance(raw_events, list):
@@ -196,14 +334,57 @@ class CaptionToEventConverter:
                     dtstart=dtstart,
                     dtend=dtend,
                     location=_nullable_str(item.get("location")),
-                    description=_nullable_str(item.get("description")),
+                    description=_clean_description(item.get("description")),
                     uid=str(uuid.uuid4()),
                     source_username=source_username,
                     source_url=caption.url,
                     source_caption=caption.caption,
+                    category=normalize_category(item.get("category")),
                 )
             )
         return events
+
+
+def _loads_json(content: str, *, context: str) -> Optional[dict]:
+    """Parse an LLM JSON reply, tolerating prose wrapped around the object."""
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        if not match:
+            logging.warning("LLM returned non-JSON for %s", context)
+            return None
+        try:
+            payload = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            logging.warning("Could not parse LLM JSON for %s", context)
+            return None
+    return payload if isinstance(payload, dict) else None
+
+
+# The prompt forbids narrating missing information, but a small model still
+# tacks on the occasional "…, though specific details are not provided". Only
+# matches a trailing comma-delimited clause, so removing it leaves a sentence.
+_FILLER_CLAUSE = re.compile(
+    r",\s*(?:though|although|but|however|with)\b[^,.]*?\b"
+    r"(?:not\s+(?:provided|specified|mentioned|available|listed|given)"
+    r"|unavailable|unspecified|no\s+(?:specific|further)\b[^,.]*)"
+    r"[^.]*",
+    re.IGNORECASE,
+)
+
+
+def _clean_description(value: object) -> Optional[str]:
+    """Coerce to a description, dropping trailing 'details not provided' filler."""
+    text = _nullable_str(value)
+    if not text:
+        return None
+    cleaned = _FILLER_CLAUSE.sub("", text).strip()
+    if not cleaned or len(cleaned) < 20:
+        return text  # Sanitizing gutted it — keep what the model wrote.
+    if cleaned[-1] not in ".!?":
+        cleaned += "."
+    return cleaned
 
 
 def _nullable_str(value: object) -> Optional[str]:
@@ -223,18 +404,7 @@ def _reference_datetime(timestamp: Optional[str]) -> datetime:
 
 
 def _parse_iso(value: Optional[str]) -> Optional[datetime]:
-    if not value:
-        return None
-    text = value.strip()
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed
+    return parse_iso_datetime(value)
 
 
 def _normalize_event_datetime(

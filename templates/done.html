@@ -14,16 +14,23 @@
     {% if has_file %}
       Your ICS file is ready to download and import into Google Calendar, Apple Calendar, or Outlook.
     {% else %}
-      Nothing was added to the calendar file. Start another scrape if you want to try again.
+      Nothing was added to the calendar file. Build another deck if you want to try again.
     {% endif %}
   </p>
+
+  {% if categories %}
+  <p class="deck-categories">
+    Deck built from:
+    {% for category in categories %}<span class="category-chip category-{{ category }}">{{ category_labels[category] }}</span>{% endfor %}
+  </p>
+  {% endif %}
 
   {% if accepted %}
   <ul class="accepted-list">
     {% for event in accepted %}
     <li>
       <strong>{{ event.summary }}</strong>
-      <span>{{ event.dtstart or "no start" }}{% if event.location %} · {{ event.location }}{% endif %}</span>
+      <span>{{ event.dtstart | pretty_date("No start time") }}{% if event.location %} · {{ event.location }}{% endif %}</span>
     </li>
     {% endfor %}
   </ul>
@@ -33,7 +40,7 @@
     {% if has_file %}
     <a class="btn primary" href="{{ url_for('download') }}">Download ICS</a>
     {% endif %}
-    <a class="btn ghost" href="{{ url_for('index') }}">Start over</a>
+    <a class="btn ghost" href="{{ url_for('index') }}">Build another deck</a>
   </div>
 </section>
 {% endblock %}

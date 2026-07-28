@@ -2,7 +2,7 @@
 {% block title %}Finding events…{% endblock %}
 {% block content %}
 <section class="panel loading-panel" data-job-id="{{ job_id }}">
-  <p class="eyebrow">{% if kind == "url" %}{{ profile }}{% else %}@{{ profile }}{% endif %}</p>
+  <p class="eyebrow">{{ label }}</p>
   <h1>Working on it</h1>
   <p class="lede loading-message" id="loading-message">Starting up…</p>
 
@@ -16,11 +16,8 @@
     <li data-step="scrape">Scraping the web</li>
     <li data-step="read">Reading captions</li>
     <li data-step="process">Processing</li>
-    <li data-step="ready">Ready to review</li>
+    <li data-step="ready">Saving to the catalog</li>
   </ul>
-
-  <form id="claim-form" method="post" action="{{ url_for('claim_job', job_id=job_id) }}" hidden>
-  </form>
 </section>
 {% endblock %}
 
@@ -34,7 +31,6 @@
   const messageEl = document.getElementById("loading-message");
   const fillEl = document.getElementById("progress-fill");
   const percentEl = document.getElementById("progress-percent");
-  const claimForm = document.getElementById("claim-form");
   const steps = Array.from(document.querySelectorAll("#loading-steps li"));
   let finished = false;
 
@@ -44,7 +40,7 @@
     if (lower.includes("scrap")) key = "scrape";
     else if (lower.includes("caption") || lower.includes("reading")) key = "read";
     else if (lower.includes("process") || lower.includes("ai")) key = "process";
-    else if (lower.includes("ready") || lower.includes("almost") || lower.includes("done")) key = "ready";
+    else if (lower.includes("catalog") || lower.includes("saved") || lower.includes("almost") || lower.includes("done")) key = "ready";
 
     const order = ["start", "scrape", "read", "process", "ready"];
     const activeIndex = order.indexOf(key);
@@ -74,17 +70,23 @@
 
       if (data.status === "done") {
         finished = true;
-        messageEl.textContent = "Ready to review";
+        messageEl.textContent = "Saved to the catalog";
         fillEl.style.width = "100%";
         percentEl.textContent = "100%";
-        activateStep("ready");
-        claimForm.submit();
+        activateStep("catalog");
+        let target = "/admin?added=" + encodeURIComponent(data.added || 0);
+        if (data.failed) {
+          target += "&failed=" + encodeURIComponent(data.failed);
+          const first = (data.problems || [])[0];
+          if (first) target += "&problem=" + encodeURIComponent(first.slice(0, 200));
+        }
+        window.location.href = target;
         return;
       }
 
       if (data.status === "error") {
         finished = true;
-        window.location.href = "/?error=" + encodeURIComponent(data.error || "Scrape failed.");
+        window.location.href = "/admin?error=" + encodeURIComponent(data.error || "Scrape failed.");
         return;
       }
     } catch (err) {
