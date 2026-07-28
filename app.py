@@ -26,6 +26,7 @@ from caption_to_events import CaptionToEventConverter
 from event_store import EVENT_STORE, CalendarEvent
 from ics_builder import build_ics
 from instagram_scraper import InstagramProfileParser, InstagramScraper, ScraperConfig
+from url_scraper import UrlEventScraper, UrlScraperConfig, normalize_url
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
@@ -44,19 +45,50 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 _JOBS: Dict[str, Dict[str, Any]] = {}
 _JOBS_LOCK = threading.Lock()
 
+# Review state (pending/accepted events) lives server-side, keyed by a small
+# id stored in the browser's session cookie — URL-mode events carry their
+# full source text and easily blow past the ~4KB signed-cookie session limit
+# if stored there directly.
+_REVIEW_SESSIONS: Dict[str, Dict[str, Any]] = {}
+_REVIEW_LOCK = threading.Lock()
 
-def _session_events() -> List[dict]:
-    return session.get("pending_events", [])
+_EMPTY_REVIEW_STATE: Dict[str, Any] = {
+    "pending_events": [],
+    "accepted_events": [],
+    "review_index": 0,
+    "profile": "",
+    "kind": "instagram",
+}
 
 
-def _accepted_events() -> List[dict]:
-    return session.get("accepted_events", [])
+def _get_review_state() -> Dict[str, Any]:
+    review_id = session.get("review_id")
+    with _REVIEW_LOCK:
+        state = _REVIEW_SESSIONS.get(review_id) if review_id else None
+        return state if state is not None else dict(_EMPTY_REVIEW_STATE)
 
 
-def _set_pending(events: List[CalendarEvent]) -> None:
-    session["pending_events"] = [event.to_dict() for event in events]
-    session["accepted_events"] = []
-    session["review_index"] = 0
+def _update_review_state(**fields: Any) -> None:
+    review_id = session.get("review_id")
+    if not review_id:
+        return
+    with _REVIEW_LOCK:
+        state = _REVIEW_SESSIONS.get(review_id)
+        if state is not None:
+            state.update(fields)
+
+
+def _set_pending(events: List[CalendarEvent], *, profile: str, kind: str) -> None:
+    review_id = uuid.uuid4().hex
+    with _REVIEW_LOCK:
+        _REVIEW_SESSIONS[review_id] = {
+            "pending_events": [event.to_dict() for event in events],
+            "accepted_events": [],
+            "review_index": 0,
+            "profile": profile,
+            "kind": kind,
+        }
+    session["review_id"] = review_id
 
 
 def _update_job(job_id: str, **fields: Any) -> None:
@@ -196,11 +228,139 @@ def scrape():
             "error": None,
             "events": [],
             "profile": username,
+            "kind": "instagram",
         }
 
     thread = threading.Thread(
         target=_run_scrape_job,
         args=(job_id, username, count),
+        daemon=True,
+    )
+    thread.start()
+    session["active_job_id"] = job_id
+    return redirect(url_for("loading", job_id=job_id))
+
+
+def _run_url_scrape_job(job_id: str, url: str, max_chunks: int) -> None:
+    try:
+        _update_job(
+            job_id,
+            status="running",
+            progress=8,
+            message="Starting up…",
+        )
+        EVENT_STORE.clear()
+        config = UrlScraperConfig(max_chunks=max_chunks)
+
+        _update_job(job_id, progress=18, message="Opening the browser…")
+        with UrlEventScraper(config) as scraper:
+            _update_job(
+                job_id,
+                progress=32,
+                message="Scraping the web…",
+            )
+            result = scraper.scrape(url)
+
+        if not result.succeeded:
+            _update_job(
+                job_id,
+                status="error",
+                progress=100,
+                message="Scrape failed",
+                error=f"Scrape failed for {url}: {result.error}",
+            )
+            return
+
+        _update_job(
+            job_id,
+            progress=58,
+            message="Reading page text…",
+        )
+
+        converter = CaptionToEventConverter()
+        chunks = result.chunks
+        total = max(len(chunks), 1)
+        events: List[CalendarEvent] = []
+
+        for index, chunk in enumerate(chunks):
+            pct = 58 + int(32 * (index + 1) / total)
+            _update_job(
+                job_id,
+                progress=min(pct, 90),
+                message="Processing with AI…",
+            )
+            events.extend(
+                converter.convert_caption(
+                    chunk,
+                    source_username=result.label,
+                )
+            )
+
+        EVENT_STORE.extend(events)
+        _update_job(job_id, progress=95, message="Almost done…")
+
+        if not events:
+            _update_job(
+                job_id,
+                status="error",
+                progress=100,
+                message="No events found",
+                error=f"No calendar events found on {url}.",
+            )
+            return
+
+        _update_job(
+            job_id,
+            status="done",
+            progress=100,
+            message="Ready to review",
+            events=[event.to_dict() for event in events],
+            profile=result.label,
+            error=None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Pipeline failed:\n%s", traceback.format_exc())
+        _update_job(
+            job_id,
+            status="error",
+            progress=100,
+            message="Something went wrong",
+            error=f"Pipeline failed: {exc}",
+        )
+
+
+@app.route("/scrape_url", methods=["POST"])
+def scrape_url():
+    raw_url = (request.form.get("url") or "").strip()
+    sections_raw = (request.form.get("sections") or "6").strip()
+    try:
+        max_chunks = max(1, int(sections_raw))
+    except ValueError:
+        max_chunks = 6
+
+    if not raw_url:
+        return render_template("index.html", error="Enter a page URL to scrape.")
+
+    try:
+        url = normalize_url(raw_url)
+    except ValueError as exc:
+        return render_template("index.html", error=str(exc))
+
+    job_id = uuid.uuid4().hex
+    with _JOBS_LOCK:
+        _JOBS[job_id] = {
+            "status": "queued",
+            "progress": 0,
+            "message": "Queued…",
+            "error": None,
+            "events": [],
+            "profile": url,
+            "kind": "url",
+        }
+
+    thread = threading.Thread(
+        target=_run_url_scrape_job,
+        args=(job_id, url, max_chunks),
         daemon=True,
     )
     thread.start()
@@ -220,6 +380,7 @@ def loading(job_id: str):
         "loading.html",
         job_id=job_id,
         profile=job.get("profile", ""),
+        kind=job.get("kind", "instagram"),
     )
 
 
@@ -253,8 +414,11 @@ def claim_job(job_id: str):
         return redirect(url_for("loading", job_id=job_id))
 
     events = [CalendarEvent(**item) for item in (job.get("events") or [])]
-    _set_pending(events)
-    session["profile"] = job.get("profile") or "events"
+    _set_pending(
+        events,
+        profile=job.get("profile") or "events",
+        kind=job.get("kind", "instagram"),
+    )
     session.pop("active_job_id", None)
 
     with _JOBS_LOCK:
@@ -265,9 +429,10 @@ def claim_job(job_id: str):
 
 @app.route("/review", methods=["GET"])
 def review():
-    pending = _session_events()
-    index = int(session.get("review_index", 0))
-    accepted = _accepted_events()
+    state = _get_review_state()
+    pending = state["pending_events"]
+    index = int(state["review_index"])
+    accepted = state["accepted_events"]
 
     if not pending:
         return redirect(url_for("index"))
@@ -282,36 +447,40 @@ def review():
         index=index + 1,
         total=len(pending),
         accepted_count=len(accepted),
-        profile=session.get("profile", ""),
+        profile=state["profile"],
+        kind=state["kind"],
     )
 
 
 @app.route("/decide", methods=["POST"])
 def decide():
-    pending = _session_events()
-    index = int(session.get("review_index", 0))
+    state = _get_review_state()
+    pending = state["pending_events"]
+    index = int(state["review_index"])
     decision = (request.form.get("decision") or "").strip().lower()
 
     if not pending or index >= len(pending):
         return redirect(url_for("done"))
 
     if decision == "yes":
-        accepted = _accepted_events()
+        accepted = state["accepted_events"]
         accepted.append(pending[index])
-        session["accepted_events"] = accepted
-        _write_ics_file(accepted)
+        _update_review_state(accepted_events=accepted)
+        _write_ics_file(accepted, profile=state["profile"])
 
-    session["review_index"] = index + 1
+    next_index = index + 1
+    _update_review_state(review_index=next_index)
 
-    if session["review_index"] >= len(pending):
+    if next_index >= len(pending):
         return redirect(url_for("done"))
     return redirect(url_for("review"))
 
 
 @app.route("/done", methods=["GET"])
 def done():
-    accepted = _accepted_events()
-    profile = session.get("profile", "events")
+    state = _get_review_state()
+    accepted = state["accepted_events"]
+    profile = state["profile"] or "events"
     ics_path = OUTPUT_DIR / f"{profile}_events.ics"
     has_file = ics_path.exists() and bool(accepted)
     return render_template(
@@ -325,7 +494,7 @@ def done():
 
 @app.route("/download", methods=["GET"])
 def download():
-    profile = session.get("profile", "events")
+    profile = _get_review_state()["profile"] or "events"
     ics_path = OUTPUT_DIR / f"{profile}_events.ics"
     if not ics_path.exists():
         return redirect(url_for("done"))
@@ -337,8 +506,8 @@ def download():
     )
 
 
-def _write_ics_file(accepted_dicts: List[dict]) -> Path:
-    profile = session.get("profile", "events")
+def _write_ics_file(accepted_dicts: List[dict], *, profile: str) -> Path:
+    profile = profile or "events"
     events = [CalendarEvent(**item) for item in accepted_dicts]
     content = build_ics(events, calendar_name=f"@{profile} events")
     path = OUTPUT_DIR / f"{profile}_events.ics"

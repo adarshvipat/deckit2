@@ -21,7 +21,8 @@ except ImportError:  # pragma: no cover - optional until installed
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 
-SYSTEM_PROMPT = """You extract calendar events from Instagram post captions.
+SYSTEM_PROMPT = """You extract calendar events from a block of text — either an
+Instagram post caption or text scraped from a web page (e.g. an events listing).
 
 Return ONLY valid JSON with this shape:
 {
@@ -37,16 +38,17 @@ Return ONLY valid JSON with this shape:
 }
 
 Rules:
-- Only create events when the caption clearly describes something schedulable (show, launch, meetup, deadline, performance, etc.).
+- Only create events when the text clearly describes something schedulable (show, launch, meetup, deadline, performance, etc.).
+- The text may describe zero, one, or several distinct events (e.g. a page listing many events) — return one entry per distinct event.
 - Past-tense thank-you / recap posts with no future date are NOT events — return {"events": []}.
 - If there is no event, return {"events": []}.
 - Prefer timezone-aware ISO-8601 when possible; otherwise use the date/time as stated.
-- Do not invent events that are not supported by the caption.
+- Do not invent events that are not supported by the text.
 
 Date / year rules (critical):
-- The user message includes "Post timestamp" (when the Instagram post was published) and "Reference date".
-- If the caption gives a month/day but NO year (e.g. "Monday, May 4th"), choose the year so the event date is near the post timestamp — usually the same year as the post, or the next year only if that month/day has already clearly passed relative to the post by more than ~2 months AND the caption implies a future event.
-- Never invent a year far from the post timestamp (e.g. do not use 2024 for a post from 2025).
+- The user message includes "Source timestamp" (when the source was published/captured, if known) and "Reference date".
+- If an event gives a month/day but NO year (e.g. "Monday, May 4th"), choose the year so the event date is near the reference date — usually the same year, or the next year only if that month/day has already clearly passed relative to the reference by more than ~2 months AND the text implies a future event.
+- Never invent a year far from the reference date (e.g. do not use 2024 when the reference date is in 2025).
 - If only a weekday + time is given with no calendar date, set dtstart/dtend to null rather than guessing.
 """
 
@@ -115,12 +117,12 @@ class CaptionToEventConverter:
 
         reference = _reference_datetime(caption.timestamp)
         user_prompt = (
-            f"Username: {source_username or 'unknown'}\n"
-            f"Post URL: {caption.url}\n"
-            f"Post timestamp: {caption.timestamp or 'unknown'}\n"
+            f"Source: {source_username or 'unknown'}\n"
+            f"Source URL: {caption.url}\n"
+            f"Source timestamp: {caption.timestamp or 'unknown'}\n"
             f"Reference date: {reference.date().isoformat()} "
             f"(use this to resolve missing years)\n"
-            f"Caption:\n{text}"
+            f"Text:\n{text}"
         )
 
         try:

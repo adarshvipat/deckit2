@@ -2,7 +2,7 @@
 {% block title %}Finding events…{% endblock %}
 {% block content %}
 <section class="panel loading-panel" data-job-id="{{ job_id }}">
-  <p class="eyebrow">@{{ profile }}</p>
+  <p class="eyebrow">{% if kind == "url" %}{{ profile }}{% else %}@{{ profile }}{% endif %}</p>
   <h1>Working on it</h1>
   <p class="lede loading-message" id="loading-message">Starting up…</p>
 

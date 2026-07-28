@@ -1,17 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Scrape Instagram Events{% endblock %}
+{% block title %}Find Events{% endblock %}
 {% block content %}
 <section class="panel hero-panel">
-  <p class="eyebrow">Instagram → Calendar</p>
+  <p class="eyebrow">Events → Calendar</p>
   <h1>Review events before they hit your calendar</h1>
   <p class="lede">
-    Pull recent posts, extract event details, then approve each one.
+    Pull text from Instagram or any web page, extract event details, then approve each one.
     Accepted events are written into an ICS file you can download.
   </p>
 
   {% if error %}
   <p class="error" role="alert">{{ error }}</p>
   {% endif %}
+
+  <div class="mode-tabs" role="tablist">
+    <button type="button" class="mode-tab active" id="tab-instagram" role="tab" aria-selected="true">Instagram profile</button>
+    <button type="button" class="mode-tab" id="tab-url" role="tab" aria-selected="false">Event page link</button>
+  </div>
 
   <form class="scrape-form" id="scrape-form" method="post" action="{{ url_for('scrape') }}">
     <label for="profile">Instagram profile</label>
@@ -29,6 +34,22 @@
 
     <button type="submit" class="btn primary" id="scrape-submit">Find events</button>
   </form>
+
+  <form class="scrape-form" id="url-form" method="post" action="{{ url_for('scrape_url') }}" hidden>
+    <label for="url">Event page link</label>
+    <input
+      id="url"
+      name="url"
+      type="text"
+      placeholder="https://umassamherst.campuslabs.com/engage/events"
+    />
+
+    <label for="sections">Sections to scan</label>
+    <input id="sections" name="sections" type="number" min="1" max="15" value="6" />
+
+    <button type="submit" class="btn primary" id="url-submit">Find events</button>
+  </form>
+
   <p class="hint">Scraping + LLM extraction can take about a minute.</p>
 </section>
 {% endblock %}
@@ -45,19 +66,54 @@
       p.className = "error";
       p.setAttribute("role", "alert");
       p.textContent = err;
-      const form = document.getElementById("scrape-form");
-      form.parentNode.insertBefore(p, form);
+      const igForm = document.getElementById("scrape-form");
+      igForm.parentNode.insertBefore(p, igForm);
     }
   }
 
-  const form = document.getElementById("scrape-form");
-  const btn = document.getElementById("scrape-submit");
-  if (form && btn) {
-    form.addEventListener("submit", () => {
-      btn.disabled = true;
-      btn.textContent = "Starting…";
-    });
+  const igTab = document.getElementById("tab-instagram");
+  const urlTab = document.getElementById("tab-url");
+  const igForm = document.getElementById("scrape-form");
+  const urlForm = document.getElementById("url-form");
+  const profileInput = document.getElementById("profile");
+  const urlInput = document.getElementById("url");
+
+  function showInstagram() {
+    igForm.hidden = false;
+    urlForm.hidden = true;
+    igTab.classList.add("active");
+    urlTab.classList.remove("active");
+    igTab.setAttribute("aria-selected", "true");
+    urlTab.setAttribute("aria-selected", "false");
+    profileInput.required = true;
+    urlInput.required = false;
   }
+
+  function showUrl() {
+    igForm.hidden = true;
+    urlForm.hidden = false;
+    urlTab.classList.add("active");
+    igTab.classList.remove("active");
+    urlTab.setAttribute("aria-selected", "true");
+    igTab.setAttribute("aria-selected", "false");
+    urlInput.required = true;
+    profileInput.required = false;
+  }
+
+  igTab.addEventListener("click", showInstagram);
+  urlTab.addEventListener("click", showUrl);
+
+  const igBtn = document.getElementById("scrape-submit");
+  igForm.addEventListener("submit", () => {
+    igBtn.disabled = true;
+    igBtn.textContent = "Starting…";
+  });
+
+  const urlBtn = document.getElementById("url-submit");
+  urlForm.addEventListener("submit", () => {
+    urlBtn.disabled = true;
+    urlBtn.textContent = "Starting…";
+  });
 })();
 </script>
 {% endblock %}

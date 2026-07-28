@@ -3,7 +3,7 @@
 {% block content %}
 <section class="panel review-panel">
   <div class="meta-row">
-    <p class="eyebrow">@{{ profile }}</p>
+    <p class="eyebrow">{% if kind == "url" %}{{ profile }}{% else %}@{{ profile }}{% endif %}</p>
     <p class="progress">{{ index }} / {{ total }} · {{ accepted_count }} accepted</p>
   </div>
 
@@ -37,7 +37,7 @@
         {% endif %}
         {% if event.source_caption %}
         <div class="full">
-          <dt>Original caption</dt>
+          <dt>{% if kind == "url" %}Source text{% else %}Original caption{% endif %}</dt>
           <dd class="caption">{{ event.source_caption }}</dd>
         </div>
         {% endif %}

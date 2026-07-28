@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "flask-app",
+      "runtimeExecutable": "/Users/avipat/Documents/computer science/test it/venv/bin/python",
+      "runtimeArgs": ["app.py"],
+      "port": 5050
+    }
+  ]
+}
