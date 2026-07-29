@@ -668,6 +668,234 @@ a {
   font-style: italic;
 }
 
+/* ---- admin nav ---- */
+
+.admin-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-nav-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+}
+
+.admin-nav-tab {
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.admin-nav-tab:hover {
+  color: var(--ink);
+}
+
+.admin-nav-tab.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.admin-nav-aside {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.admin-nav-aside:hover {
+  color: var(--accent);
+}
+
+/* ---- catalog stats band ---- */
+
+/* Chart fills. NOT the brand --accent: #0f6b5c fails the categorical chroma
+   floor (0.083, reads gray as a fill). These three are the snapped-to-passing
+   steps and clear all six checks against the panel surface. */
+:root {
+  --mix-professional: #00806b;
+  --mix-fun: #c47a3a;
+  --mix-community: #4b56a0;
+  --mix-none: #8c8578;
+}
+
+.stats-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero-figure {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sans, not the Fraunces display face — a serif hero reads as decoration.
+   Proportional figures: tabular-nums makes a 3-digit number look loose here. */
+.hero-value {
+  font-family: var(--font-body);
+  font-size: 3.25rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.hero-label {
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.kpi-row,
+.gap-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.kpi-row {
+  flex: 1;
+  min-width: 260px;
+}
+
+.gap-row {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.stat-value {
+  font-family: var(--font-body);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.stat-sub {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.stat-tile form {
+  margin-top: 0.35rem;
+}
+
+/* Meter: a ratio against a limit. Track is a lighter step of the fill's ramp. */
+.meter {
+  height: 4px;
+  margin: 0.4rem 0 0.25rem;
+  border-radius: 2px;
+  background: rgba(15, 107, 92, 0.12);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 240ms ease;
+}
+
+.meter-fill.high {
+  background: #a8541f;
+}
+
+.mix {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.mix-title {
+  margin: 0 0 0.6rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Segments are separated by a 2px surface-colored gap, never a border. */
+.mix-bar {
+  display: flex;
+  gap: 2px;
+  height: 20px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mix-segment {
+  height: 100%;
+  min-width: 3px;
+}
+
+.mix-segment:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.mix-segment:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.mix-professional { background: var(--mix-professional); }
+.mix-fun { background: var(--mix-fun); }
+.mix-community { background: var(--mix-community); }
+.mix-none { background: var(--mix-none); }
+
+/* Legend carries every count, so no value is gated behind hover. Text wears
+   text tokens; identity comes from the swatch, never from colored text. */
+.mix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.mix-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mix-legend strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.mix-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
 /* ---- admin batch scrape form ---- */
 
 .source-fields {
@@ -875,6 +1103,19 @@ a {
 
   .source-fields {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kpi-row,
+  .gap-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-nav {
+    justify-content: center;
+  }
+
+  .mix-legend {
+    gap: 0.35rem 0.9rem;
   }
 
   .source-list li {

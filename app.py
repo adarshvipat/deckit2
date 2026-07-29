@@ -30,6 +30,7 @@ from flask import (
 )
 
 from caption_to_events import CaptionToEventConverter
+from catalog_stats import compute_stats
 from event_catalog import CATALOG
 from event_store import (
     CATEGORY_BLURBS,
@@ -313,7 +314,11 @@ def _run_batch_job(
         )
 
 
-def _render_admin(error: Optional[str] = None):
+def _render_feed(error: Optional[str] = None):
+    return render_template("admin.html", error=error, active_page="feed")
+
+
+def _render_catalog(error: Optional[str] = None):
     events = CATALOG.all()
 
     def sort_key(event: CalendarEvent):
@@ -327,12 +332,14 @@ def _render_admin(error: Optional[str] = None):
         key=lambda s: s.get("last_scraped") or "",
         reverse=True,
     )
+    event_dicts = [event.to_dict() for event in events]
     return render_template(
-        "admin.html",
+        "catalog.html",
         error=error,
-        events=[event.to_dict() for event in events],
+        active_page="catalog",
+        events=event_dicts,
         sources=sources,
-        total=len(events),
+        stats=compute_stats(event_dicts),
         missing_count=len(CATALOG.missing_descriptions()),
         category_labels=CATEGORY_LABELS,
     )
@@ -340,7 +347,12 @@ def _render_admin(error: Optional[str] = None):
 
 @app.route("/admin", methods=["GET"])
 def admin():
-    return _render_admin()
+    return _render_feed()
+
+
+@app.route("/admin/catalog", methods=["GET"])
+def catalog():
+    return _render_catalog()
 
 
 @app.route("/admin/scrape", methods=["POST"])
@@ -374,9 +386,9 @@ def scrape():
             bad.append(str(exc))
 
     if bad:
-        return _render_admin(error=" · ".join(bad))
+        return _render_feed(error=" · ".join(bad))
     if not usernames and not urls:
-        return _render_admin(
+        return _render_feed(
             error="Add at least one Instagram profile or page URL to scrape."
         )
 
@@ -404,7 +416,7 @@ def scrape():
 def loading(job_id: str):
     job = _get_job(job_id)
     if not job:
-        return _render_admin(error="That scrape job was not found. Try again.")
+        return _render_feed(error="That scrape job was not found. Try again.")
     return render_template(
         "loading.html",
         job_id=job_id,
@@ -434,13 +446,20 @@ def job_status(job_id: str):
 @app.route("/admin/events/<uid>/delete", methods=["POST"])
 def delete_event(uid: str):
     CATALOG.remove(uid)
-    return redirect(url_for("admin"))
+    return redirect(url_for("catalog"))
 
 
 @app.route("/admin/events/clear", methods=["POST"])
 def clear_events():
     CATALOG.clear()
-    return redirect(url_for("admin"))
+    return redirect(url_for("catalog"))
+
+
+@app.route("/admin/events/purge_past", methods=["POST"])
+def purge_past():
+    """Drop events that have already happened; undated ones are kept."""
+    removed = CATALOG.remove_past()
+    return redirect(url_for("catalog", purged=removed))
 
 
 # Bound one click's work; a large catalog is handled by clicking again.
@@ -452,17 +471,17 @@ def backfill_descriptions():
     """Generate descriptions for stored events that are missing one."""
     pending = CATALOG.missing_descriptions()
     if not pending:
-        return redirect(url_for("admin"))
+        return redirect(url_for("catalog"))
 
     try:
         converter = CaptionToEventConverter()
     except (ValueError, ImportError) as exc:
-        return _render_admin(error=str(exc))
+        return _render_catalog(error=str(exc))
 
     descriptions = converter.describe_events(pending, max_calls=BACKFILL_MAX_CALLS)
     filled = CATALOG.update_descriptions(descriptions)
     remaining = len(CATALOG.missing_descriptions())
-    return redirect(url_for("admin", filled=filled, remaining=remaining))
+    return redirect(url_for("catalog", filled=filled, remaining=remaining))
 
 
 # ---------------------------------------------------------------------------

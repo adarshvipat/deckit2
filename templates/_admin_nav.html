@@ -1,0 +1,15 @@
+<nav class="admin-nav" aria-label="Admin">
+  <div class="admin-nav-tabs">
+    <a
+      href="{{ url_for('admin') }}"
+      class="admin-nav-tab{% if active_page == 'feed' %} active{% endif %}"
+      {% if active_page == 'feed' %}aria-current="page"{% endif %}
+    >Feed the catalog</a>
+    <a
+      href="{{ url_for('catalog') }}"
+      class="admin-nav-tab{% if active_page == 'catalog' %} active{% endif %}"
+      {% if active_page == 'catalog' %}aria-current="page"{% endif %}
+    >Catalog</a>
+  </div>
+  <a class="admin-nav-aside" href="{{ url_for('index') }}">Client survey →</a>
+</nav>

@@ -1,6 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Admin — event catalog{% endblock %}
+{% block title %}Feed the catalog{% endblock %}
 {% block content %}
+{% include "_admin_nav.html" %}
+
 <section class="panel hero-panel">
   <p class="eyebrow">Admin</p>
   <h1>Feed the catalog</h1>
@@ -51,88 +53,6 @@
     all pages share another, so a batch is much faster than running them one at a time.
   </p>
 </section>
-
-<section class="panel catalog-panel">
-  <div class="meta-row">
-    <p class="eyebrow">Catalog</p>
-    <p class="progress">{{ total }} event{% if total != 1 %}s{% endif %} stored</p>
-  </div>
-
-  {% if missing_count %}
-  <form class="backfill-form" method="post" action="{{ url_for('backfill_descriptions') }}" id="backfill-form">
-    <p>
-      {{ missing_count }} event{% if missing_count != 1 %}s have{% else %} has{% endif %}
-      no description.
-    </p>
-    <button type="submit" class="btn primary" id="backfill-submit">Generate descriptions</button>
-  </form>
-  {% endif %}
-
-  {% if sources %}
-  <ul class="source-list">
-    {% for source in sources %}
-    <li>
-      <strong>{% if source.kind == 'instagram' %}@{{ source.label }}{% else %}{{ source.label }}{% endif %}</strong>
-      <span>{{ source.event_count }} added · last scraped {{ (source.last_scraped or '')[:16].replace('T', ' ') }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-
-  {% if events %}
-  <div class="table-scroll">
-    <table class="catalog-table">
-      <thead>
-        <tr>
-          <th>Event</th>
-          <th>Starts</th>
-          <th>Category</th>
-          <th>Source</th>
-          <th><span class="visually-hidden">Delete</span></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for event in events %}
-        <tr>
-          <td>
-            <strong>{{ event.summary }}</strong>
-            {% if event.location %}<span class="cell-sub">{{ event.location }}</span>{% endif %}
-          </td>
-          <td>{{ event.dtstart | pretty_date("—") }}</td>
-          <td>
-            {% if event.category %}
-            <span class="category-chip category-{{ event.category }}">{{ category_labels[event.category] }}</span>
-            {% else %}
-            <span class="category-chip category-none">Untagged</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if event.source_url %}
-            <a href="{{ event.source_url }}" target="_blank" rel="noopener">{{ event.source_username or 'source' }}</a>
-            {% else %}
-            {{ event.source_username or '—' }}
-            {% endif %}
-          </td>
-          <td>
-            <form method="post" action="{{ url_for('delete_event', uid=event.uid) }}">
-              <button type="submit" class="btn tiny ghost">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <form class="danger-form" method="post" action="{{ url_for('clear_events') }}" id="clear-form">
-    <button type="submit" class="btn ghost danger">Clear the whole catalog</button>
-  </form>
-  {% else %}
-  <p class="lede">Nothing stored yet. Scrape a profile or a page above to get started.</p>
-  {% endif %}
-
-  <p class="admin-link"><a href="{{ url_for('index') }}">Go to the client survey</a></p>
-</section>
 {% endblock %}
 
 {% block scripts %}
@@ -151,8 +71,6 @@
     scrapeForm.parentNode.insertBefore(p, scrapeForm);
   }
 
-  const filled = params.get("filled");
-
   if (err && !document.querySelector(".error")) {
     notice(err, "error");
   } else if (added !== null) {
@@ -168,16 +86,6 @@
       text += problem ? `: ${problem}` : ".";
     }
     notice(text, failed ? "error" : "notice");
-  } else if (filled !== null) {
-    const n = Number(filled) || 0;
-    const left = Number(params.get("remaining")) || 0;
-    const tail = left ? ` ${left} still to go — run it again.` : "";
-    notice(
-      n === 0
-        ? `No descriptions could be generated.${tail}`
-        : `Wrote ${n} description${n === 1 ? "" : "s"}.${tail}`,
-      "notice"
-    );
   }
 
   const scrapeBtn = document.getElementById("scrape-submit");
@@ -192,24 +100,6 @@
     scrapeBtn.disabled = true;
     scrapeBtn.textContent = "Starting…";
   });
-
-  const backfillForm = document.getElementById("backfill-form");
-  if (backfillForm) {
-    backfillForm.addEventListener("submit", () => {
-      const b = document.getElementById("backfill-submit");
-      b.disabled = true;
-      b.textContent = "Writing…";
-    });
-  }
-
-  const clearForm = document.getElementById("clear-form");
-  if (clearForm) {
-    clearForm.addEventListener("submit", (e) => {
-      if (!window.confirm("Delete every event in the catalog? This cannot be undone.")) {
-        e.preventDefault();
-      }
-    });
-  }
 })();
 </script>
 {% endblock %}

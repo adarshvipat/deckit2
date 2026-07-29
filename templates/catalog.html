@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Catalog{% endblock %}
+{% block content %}
+{% include "_admin_nav.html" %}
+
+<section class="panel stats-band">
+  {% if error %}
+  <p class="error" role="alert">{{ error }}</p>
+  {% endif %}
+
+  <div class="stats-head">
+    <div class="hero-figure">
+      <span class="hero-value">{{ stats.total }}</span>
+      <span class="hero-label">event{% if stats.total != 1 %}s{% endif %} stored</span>
+    </div>
+
+    <div class="kpi-row">
+      <div class="stat-tile">
+        <span class="stat-value">{{ stats.upcoming }}</span>
+        <span class="stat-label">Upcoming</span>
+      </div>
+      <div class="stat-tile">
+        <span class="stat-value">{{ stats.past }}</span>
+        <span class="stat-label">Already past</span>
+        {% if stats.past %}
+        <form method="post" action="{{ url_for('purge_past') }}" id="purge-form">
+          <button type="submit" class="btn tiny ghost">Remove past</button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="stat-tile">
+        <span class="stat-value">{{ sources | length }}</span>
+        <span class="stat-label">Source{% if sources | length != 1 %}s{% endif %}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap-row">
+    {% for gap in [
+      {"label": "No date", "pct": stats.no_date_pct, "count": stats.no_date},
+      {"label": "No start time", "pct": stats.no_time_pct, "count": stats.no_time},
+      {"label": "No description", "pct": stats.no_description_pct, "count": stats.no_description}
+    ] %}
+    <div class="stat-tile gap-tile">
+      <span class="stat-value">{{ gap.pct }}%</span>
+      <span class="stat-label">{{ gap.label }}</span>
+      <div class="meter" role="img" aria-label="{{ gap.count }} of {{ stats.total }} events">
+        <div class="meter-fill{% if gap.pct >= 25 %} high{% endif %}" style="width: {{ gap.pct }}%"></div>
+      </div>
+      <span class="stat-sub">{{ gap.count }} of {{ stats.total }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if stats.categories %}
+  <div class="mix">
+    <p class="mix-title">Category mix</p>
+    <div class="mix-bar">
+      {% for cat in stats.categories %}
+      <div class="mix-segment mix-{{ cat.key }}" style="width: {{ cat.pct }}%"></div>
+      {% endfor %}
+    </div>
+    <ul class="mix-legend">
+      {% for cat in stats.categories %}
+      <li>
+        <span class="mix-swatch mix-{{ cat.key }}" aria-hidden="true"></span>
+        {{ cat.label }} <strong>{{ cat.count }}</strong>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel catalog-panel">
+  <div class="meta-row">
+    <p class="eyebrow">All events</p>
+    <p class="progress">{{ stats.total }} stored</p>
+  </div>
+
+  {% if missing_count %}
+  <form class="backfill-form" method="post" action="{{ url_for('backfill_descriptions') }}" id="backfill-form">
+    <p>
+      {{ missing_count }} event{% if missing_count != 1 %}s have{% else %} has{% endif %}
+      no description.
+    </p>
+    <button type="submit" class="btn primary" id="backfill-submit">Generate descriptions</button>
+  </form>
+  {% endif %}
+
+  {% if sources %}
+  <ul class="source-list">
+    {% for source in sources %}
+    <li>
+      <strong>{% if source.kind == 'instagram' %}@{{ source.label }}{% else %}{{ source.label }}{% endif %}</strong>
+      <span>{{ source.event_count }} added · last scraped {{ (source.last_scraped or '')[:16].replace('T', ' ') }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if events %}
+  <div class="table-scroll">
+    <table class="catalog-table">
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Starts</th>
+          <th>Category</th>
+          <th>Source</th>
+          <th><span class="visually-hidden">Delete</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+        <tr>
+          <td>
+            <strong>{{ event.summary }}</strong>
+            {% if event.location %}<span class="cell-sub">{{ event.location }}</span>{% endif %}
+          </td>
+          <td>{{ event.dtstart | pretty_date("—") }}</td>
+          <td>
+            {% if event.category %}
+            <span class="category-chip category-{{ event.category }}">{{ category_labels[event.category] }}</span>
+            {% else %}
+            <span class="category-chip category-none">Untagged</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if event.source_url %}
+            <a href="{{ event.source_url }}" target="_blank" rel="noopener">{{ event.source_username or 'source' }}</a>
+            {% else %}
+            {{ event.source_username or '—' }}
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('delete_event', uid=event.uid) }}">
+              <button type="submit" class="btn tiny ghost">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form class="danger-form" method="post" action="{{ url_for('clear_events') }}" id="clear-form">
+    <button type="submit" class="btn ghost danger">Clear the whole catalog</button>
+  </form>
+  {% else %}
+  <p class="lede">Nothing stored yet. Head to <a href="{{ url_for('admin') }}">Feed the catalog</a> to scrape a source.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const band = document.querySelector(".stats-band");
+
+  function notice(text, className) {
+    const p = document.createElement("p");
+    p.className = className;
+    p.setAttribute("role", "alert");
+    p.textContent = text;
+    band.insertBefore(p, band.firstChild);
+  }
+
+  const filled = params.get("filled");
+  const purged = params.get("purged");
+
+  if (filled !== null) {
+    const n = Number(filled) || 0;
+    const left = Number(params.get("remaining")) || 0;
+    const tail = left ? ` ${left} still to go — run it again.` : "";
+    notice(
+      n === 0
+        ? `No descriptions could be generated.${tail}`
+        : `Wrote ${n} description${n === 1 ? "" : "s"}.${tail}`,
+      "notice"
+    );
+  } else if (purged !== null) {
+    const n = Number(purged) || 0;
+    notice(
+      n === 0
+        ? "No past events to remove."
+        : `Removed ${n} past event${n === 1 ? "" : "s"}.`,
+      "notice"
+    );
+  }
+
+  const backfillForm = document.getElementById("backfill-form");
+  if (backfillForm) {
+    backfillForm.addEventListener("submit", () => {
+      const b = document.getElementById("backfill-submit");
+      b.disabled = true;
+      b.textContent = "Writing…";
+    });
+  }
+
+  const clearForm = document.getElementById("clear-form");
+  if (clearForm) {
+    clearForm.addEventListener("submit", (e) => {
+      if (!window.confirm("Delete every event in the catalog? This cannot be undone.")) {
+        e.preventDefault();
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

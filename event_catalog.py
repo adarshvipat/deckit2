@@ -177,6 +177,27 @@ class EventCatalog:
                 self._save()
             return changed
 
+    def remove_past(self, *, now: Optional[datetime] = None) -> int:
+        """Drop events that have already happened. Returns the count removed.
+
+        Undated events are kept — no date is not the same as finished.
+        """
+        cutoff = now or datetime.now(timezone.utc)
+        with self._lock:
+            self._load()
+            keep = []
+            removed = 0
+            for event in self._events:
+                start = parse_iso_datetime(event.dtstart)
+                if start is not None and start < cutoff:
+                    removed += 1
+                else:
+                    keep.append(event)
+            if removed:
+                self._events = keep
+                self._save()
+            return removed
+
     def clear(self) -> None:
         with self._lock:
             self._load()
